@@ -1,41 +1,52 @@
 import os
+import mysql.connector
 import pandas as pd
-import MySQLdb
 import zipfile
+import csv
 
 #Diretorios onde estão os arquivos ZIP
-diretorio_zip1 = "./arquivos_teste3/arquivos2023"
-diretorio_zip2 = "./arquivos_teste3/arquivos2022"
+diretorio = os.path.join(os.getcwd(), './arquivos_teste3')
 
-for item in os.listdir(diretorio_zip1):
+#Extração de todos arquivos ZIP para o diretório atual
+for item in os.listdir(diretorio):
     if item.endswith('.zip'):
-        #Caminho completo do arquivo ZIP
-        arquivo_zip = os.path.join(diretorio_zip1, item)
-
-        #Cria um objeto ZipFile
+        arquivo_zip = os.path.join(diretorio, item)   
         with zipfile.ZipFile(arquivo_zip, 'r') as zip_ref:
-            #Extrai todos arquivos ZIP para o diretório atual
-            zip_ref.extractall(diretorio_zip1)
+            zip_ref.extractall(diretorio)
             print(f'Arquivo {arquivo_zip} decompactado com sucesso')
+    
+#Conexão ao MySQL Server
+conn = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="1234",
+    database="dados_csv"
+)
+cursor = conn.cursor()
+#cursor.execute("CREATE DATABASE dados_csv")
 
-#Conexão com o banco de dados MySQL
-conexao = MySQLdb.connect(host="localhost", user="jordan", passwd="123", db="Dados 2023")
-cursor = conexao.cursor()
+arquivos_csv = [f for f in os.listdir(diretorio) if f.endswith('2023.csv')]
 
-for arquivo in os.listdir(diretorio_zip1):
-    if arquivo.endswith('.csv'):
-        #Caminho completo do arquivo csv
-        arquivo_csv = os.path.join(diretorio_zip1, arquivo)
+#Loop pelos arquivos CSV 
+for arquivo in arquivos_csv:
+    #Nome da tabela será o nome do arquivo CSV sem a extensão
+    nome_tabela = os.path.splitext(arquivo)[0]
 
-        #Carrega os dados do arquivo CSV em um dataframe pandas
-        dados = pd.read_csv(arquivo_csv)
+    with open(os.path.join(diretorio, arquivo), 'r', newline='') as csv_file:
+        csv_reader = csv.reader(csv_file)
+        
+        #Ler o cabeçalho do CSV
+        header = next(csv_reader)    
 
-        #Nome da tabela do banco de dados
-        nome_tabela = os.path.splitext(arquivo)[0]
+        #Cria a tabela no banco de dados se ela não existir
+        create_table_query = f"CREATE TABLE IF NOT EXISTS {nome_tabela} ({', '.join([f'{col} VARCHAR(255)' for col in header])})"
+        cursor.execute(create_table_query)
 
-        #Insere os dados do dataframe no banco de dados
-        dados.to_sql(nome_tabela, conexao, if_exists='replace', index=False)
-        print(f'Dados do arquivo {arquivo} inseridos na tabela {nome_tabela} com sucesso')
+        #Inserir os dados linha por linha no banco de dados
+        for row in csv_reader:
+            insert_query = f"INSERT INTO {nome_tabela} VALUES ({', '.join(['%s'] * len(row))})"
+            cursor.execute(insert_query, row)
 
-#Fecha a conexão com o banco de dados
-conexao.close()
+#Commit e fechar conexão
+conn.commit()
+conn.close()
