@@ -3,7 +3,7 @@ import mysql.connector
 import pandas as pd
 import zipfile
 import csv
-import subprocess
+
 
 #Diretorios onde estão os arquivos ZIP
 diretorio = './arquivos_teste3'
