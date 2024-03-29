@@ -39,7 +39,7 @@ if url_response.status_code == 200:
             filename = os.path.join(pasta_destino, os.path.basename(link_anexo))
             wget.download(link_anexo, filename)
             print(f"Arquivo '{filename}' baixado com sucesso.")
-            zip.write(os.path.basename(filename))
+            zip.write(filename, arcname=os.path.basename(link_anexo))
    
 else: 
-    print("Erro na solicitaçao para carregar a pagina", url_response.status_code)
+    print("Erro na solicitacao para carregar a pagina", url_response.status_code)

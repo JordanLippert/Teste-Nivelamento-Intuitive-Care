@@ -24,66 +24,73 @@ conn = mysql.connector.connect(
     database="dados_csv"
 )
 cursor = conn.cursor()
-#cursor.execute("CREATE DATABASE dados_csv")
 
 arquivos_csv = [f for f in os.listdir(diretorio) if f.endswith('.csv')]
 
-#Loop pelos arquivos CSV 
+def inserir_banco_de_dados(nome_tabela, caminho_arquivo_csv, codificacoes=['utf-8', 'latin-1', 'iso-8859-1']):
+    for codificacao in codificacoes:
+        try:
+            with open(caminho_arquivo_csv, 'r', newline='', encoding=codificacao) as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=';')  #Especificando o delimitador
+
+                #Ler o cabeçalho do CSV
+                header = next(csv_reader)
+
+                #Cria a tabela no banco de dados se ela não existir
+                create_table_query = f"CREATE TABLE IF NOT EXISTS {nome_tabela} ({', '.join([f'{col} VARCHAR(255)' for col in header])})"
+                cursor.execute(create_table_query)
+                print("Tabela " + nome_tabela + " criada")
+
+                #Iniciar uma transação
+                conn.start_transaction()
+
+                #Inserir os dados em lotes
+                rows_to_insert = []
+                batch_size = 3000  #Tamanho do lote
+                current_batch = 0
+                
+                #Le as linhas por lotes de 3000 linhas cada
+                for linha_atual, linha in enumerate(csv_reader, start=1):
+                    rows_to_insert.append(linha)
+                    if linha_atual % batch_size == 0:
+                        current_batch += 1
+                        insert_query = f"INSERT INTO {nome_tabela} ({', '.join(header)}) VALUES ({', '.join(['%s'] * len(header))})"
+                        cursor.executemany(insert_query, rows_to_insert)
+                        print(f"Lote {current_batch} aplicado no banco de dados (arquivo {caminho_arquivo_csv})")
+                        rows_to_insert = []
+
+                print("Lotes de inserção de dados inseridos")   
+
+                #Inserir quaisquer linhas restantes
+                if rows_to_insert:
+                    insert_query = f"INSERT INTO {nome_tabela} ({', '.join(header)}) VALUES ({', '.join(['%s'] * len(header))})"
+                    cursor.executemany(insert_query, rows_to_insert)
+
+                print("Linhas extras inseridas")
+
+                #Commit da transação
+                conn.commit()
+                print(f"Dados da tabela {nome_tabela} inseridos com sucesso")
+                return True
+
+        except UnicodeDecodeError:
+            print(f"Erro de codificacao ao ler {caminho_arquivo_csv}, tentando proxima codificacao...")
+    
+    print("Todas as tentativas de codificacao falharam. Verifique o arquivo e as codificacoes.")
+    return False
+
+arquivos_csv = [f for f in os.listdir(diretorio) if f.endswith('.csv')]
+
+#Loop pelos arquivos CSV
 for arquivo in arquivos_csv:
     #Nome da tabela será o nome do arquivo CSV sem a extensão
-    nome_tabela = 'leitura_arquivos'
+    nome_arquivo = os.path.splitext(arquivo)[0]
+    if (nome_arquivo == 'Relatorio_cadop'):
+        nome_tabela = 'relatorio_cadop'
+    else:
+        nome_tabela = 'dados_tabela'
 
-    try: 
-        with open(os.path.join(diretorio, arquivo), 'r', newline='', encoding='utf-8') as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=';') #Especificando o delimitador
-            
-            #Ler o cabeçalho do CSV
-            header = next(csv_reader)    
+    inserir_banco_de_dados(nome_tabela, os.path.join(diretorio, arquivo))
 
-            #Cria a tabela no banco de dados se ela não existir
-            create_table_query = f"CREATE TABLE IF NOT EXISTS {nome_tabela} ({', '.join([f'{col} VARCHAR(255)' for col in header])})"
-            cursor.execute(create_table_query)
-
-            #Inserir os dados linha por linha no banco de dados
-            for row in csv_reader:
-                insert_query = f"INSERT INTO {nome_tabela} VALUES ({', '.join(['%s'] * len(row))})"
-                cursor.execute(insert_query, row)
-            print(f"Tabela {nome_tabela} criada com sucesso")
-
-    except UnicodeDecodeError:
-        print(f"Erro de codificacao ao ler {arquivo}, tentando outras codificacoes...")
-
-        #Tentar diferentes codificações
-        codificacoes = ['utf-8', 'latin-1', 'iso-8859-1']
-        for codificacao in codificacoes:
-            try: 
-                with open(os.path.join(diretorio, arquivo), 'r', newline='', encoding=codificacao) as csv_file:
-                    csv_reader = csv.reader(csv_file, delimiter=';') #Especificando o delimitador  
-
-                    #Ler o cabeçalho do CSV
-                    header = next(csv_reader)    
-
-                    #Cria a tabela no banco de dados se ela não existir
-                    create_table_query = f"CREATE TABLE IF NOT EXISTS {nome_tabela} ({', '.join([f'{col} VARCHAR(255)' for col in header])})"
-                    cursor.execute(create_table_query)
-
-                    #Inserir os dados linha por linha no banco de dados
-                    for row in csv_reader:
-                        insert_query = f"INSERT INTO {nome_tabela} VALUES ({', '.join(['%s'] * len(row))})"
-                        cursor.execute(insert_query, row)
-                    print(f"Tabela {nome_tabela} criada com sucesso") 
-
-                break #Parar o loop se a codificação funcionar
-
-            except UnicodeDecodeError:
-                print(f"Tentativa de usar a codificacao {codificacao} falhou, tentando proxima codificacao...")
-
-#Commit e fechar conexão
-conn.commit()
+#Fechar conexão
 conn.close()
-
-#Comando mysqldump
-comando = "mysqldump -u root -p1234 dados_csv > dados.sql"
-
-#Executando o comando no terminal
-subprocess.run(comando, shell=True)
