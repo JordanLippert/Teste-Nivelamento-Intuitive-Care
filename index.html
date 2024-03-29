@@ -4,6 +4,7 @@
 <head>
     <title>Busca de Operadoras</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -11,9 +12,9 @@
         <input type="text" v-model="searchQuery" placeholder="Digite o termo de busca">
         <button @click="search">Buscar</button>
         <ul>
-            <li v-for="result in searchResults">{ }</li>
+            <b>{{ result[2] }}</b> (ANS: {{ result[0] }})</b>
         </ul>
     </div>
-    <script src="app.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>

@@ -1,8 +1,10 @@
 import mysql.connector
+from flask_cors import CORS
 from flask import Flask, request, jsonify
 
 #Criando uma instância da aplicação Flask usando o nome do módulo como referência
 app = Flask(__name__)
+CORS(app) #Habilitando CORS para todas as rotas
 
 #Conexão ao MySQL Server
 conn = mysql.connector.connect(
