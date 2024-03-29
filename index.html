@@ -12,7 +12,7 @@
         <input type="text" v-model="searchQuery" placeholder="Digite o termo de busca">
         <button @click="search">Buscar</button>
         <ul>
-            <li><b>{{ result[2] }}</b> (ANS: {{ result[0] }})</b></li>
+            <li v-for="result in searchResults"><b>{{ result[2] }}</b> (ANS: {{ result[0] }})</b></li>
         </ul>
     </div>
     <script src="main.js"></script>
